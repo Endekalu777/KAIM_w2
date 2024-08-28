@@ -1,26 +1,44 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import nltk
-from nltk.sentiment import SentimentIntensityAnalyzer
-from wordcloud import WordCloud
-import re
+import pyLDAvis.lda_model
 import pyLDAvis.gensim_models as gensimvis
 import pyLDAvis
+import re
+import nltk
+from nltk.sentiment import SentimentIntensityAnalyzer
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from wordcloud import WordCloud
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 
 class ArticleDataAnalyzer:
     def __init__(self, df):
         self.df = df
-    
+        self.stop_words = set(stopwords.words('english'))
+        self.lemmatizer = WordNetLemmatizer()
+    def ensure_nltk_resources(self):
+        resources = [
+            'corpora/stopwords.zip',
+            'corpora/wordnet.zip',
+            'sentiment/vader_lexicon.zip'
+        ]
+        
+        for resource in resources:
+            try:
+                nltk.data.find(resource)
+            except LookupError:
+                print(f"Downloading {resource}...")
+                nltk.download(resource.split('/')[1].split('.')[0])
+
+
     def format_datetime(self):
-        self.df['date'] = pd.to_datetime(self.df['date'], format = "ISO8601", utc = True)
+        self.df['date'] = pd.to_datetime(self.df['date'], format = "ISO8601")
         self.df['year'] = self.df['date'].dt.year
         self.df['month'] = self.df['date'].dt.month
         self.df['day'] = self.df['date'].dt.day
@@ -46,7 +64,10 @@ class ArticleDataAnalyzer:
         plt.show()
 
     def sentiment_analysis(self):
-        nltk.download('vader_lexicon')
+        try:
+            nltk.data.find('sentiment/vader_lexicon.zip')
+        except LookupError:
+            nltk.download('vader_lexicon')
         sia = SentimentIntensityAnalyzer()
         self.df['sentiment'] = self.df['headline'].apply(lambda x: sia.polarity_scores(x)['compound'])
         self.df['sentiment_class'] = self.df['sentiment'].apply(lambda x: 'positive' if x > 0 else 'negative' if x < 0 else 'neutral')
@@ -57,6 +78,11 @@ class ArticleDataAnalyzer:
         plt.ylabel('Count')
         plt.show()
 
+        sentiment_counts = self.df['sentiment_class'].value_counts()
+        print("Sentiment Counts:")
+        for sentiment, count in sentiment_counts.items():
+            print(f"{sentiment.capitalize()}: {count}")
+
         sentiment_by_publisher = self.df.groupby('publisher')['sentiment'].mean().sort_values(ascending=False).head(30)
 
         # Plot sentiment by top publishers
@@ -66,6 +92,7 @@ class ArticleDataAnalyzer:
         plt.xlabel('Average Sentiment')
         plt.ylabel('Publisher')
         plt.show()
+
 
         publisher_sentiment = self.df.groupby('publisher').agg(
         article_count=('headline', 'count'),
@@ -158,20 +185,6 @@ class ArticleDataAnalyzer:
         else:
             print("No data available for the specified period.")
 
-
-    def publication_frequency(self):
-        # Resample data by day to count the number of articles per day
-        self.set_datetime_index()
-        daily_articles = self.df.resample('D').size()
-
-        # Plot the publication frequency
-        plt.figure(figsize=(12, 6))
-        daily_articles.plot()
-        plt.title('Number of Articles Published Over Time')
-        plt.xlabel('Date')
-        plt.ylabel('Number of Articles')
-        plt.show()
-
     def extract_domain(self):
         # Extract domain from publisher email (if applicable)
         self.df['domain'] = self.df['publisher'].apply(lambda x: x.split('@')[-1] if '@' in x else 'Other')
@@ -190,47 +203,65 @@ class ArticleDataAnalyzer:
         plt.show()
 
     def preprocess_text(self, text):
-        nltk.download('stopwords')
-        nltk.download('wordnet')
         # Tokenize and clean text
         text = re.sub(r'\s+', ' ', text)  # Remove multiple spaces
-        text = re.sub(r"[^a-zA-Z]", " ", text)  # Remove everything except letters
+        text = re.sub(r"[^a-zA-Z\s]", " ", text)  # Remove everything except letters and spaces
         tokens = text.lower().split()
-        
+
         # Remove stop words and lemmatize
-        stop_words = set(stopwords.words('english'))
-        lemmatizer = WordNetLemmatizer()
-        tokens = [lemmatizer.lemmatize(token) for token in tokens if token not in stop_words]
+        tokens = [self.lemmatizer.lemmatize(token) for token in tokens if token not in self.stop_words]
         
         return ' '.join(tokens)
 
-    def topic_modeling(self, num_topics=5, num_words=10):
-        # Preprocess the headlines
-        self.df['processed_headlines'] = self.df['headline'].apply(self.preprocess_text)
-        
-        # Create a CountVectorizer and LDA model
-        vectorizer = CountVectorizer()
-        lda_model = LatentDirichletAllocation(n_components=num_topics, random_state=100)
+    def topic_modeling(self, num_topics=5, num_words=10, sample_size=None):
+        # Sample a portion of the data if sample_size is specified
+        if sample_size:
+            df_sample = self.df.sample(n=sample_size, random_state=100)
+        else:
+            df_sample = self.df
 
-        # Pipeline to process text and apply LDA
-        pipeline = make_pipeline(vectorizer, lda_model)
-        pipeline.fit(self.df['processed_headlines'])
-        
-        # Print the topics
+        # Create a CountVectorizer and LDA model
+        vectorizer = CountVectorizer(stop_words='english', max_df=0.95, min_df=2)
+        lda_model = LatentDirichletAllocation(n_components=num_topics, random_state=100, n_jobs=-1)  # Use all CPUs
+
+        # Define a custom preprocessor function
+        def preprocess_pipeline(texts):
+            return [self.preprocess_text(text) for text in texts]
+
+        # Use a pipeline to process text and apply LDA
+        pipeline = Pipeline([
+            ('preprocessor', FunctionTransformer(lambda x: preprocess_pipeline(x), validate=False)),
+            ('vectorizer', vectorizer),
+            ('lda', lda_model)
+        ])
+
+        # Fit the pipeline
+        pipeline.fit(df_sample['headline'])
+
+        # Extract the LDA model and feature names
         feature_names = vectorizer.get_feature_names_out()
+        lda_model = pipeline.named_steps['lda']
+
+        # Print the topics
         for topic_idx, topic in enumerate(lda_model.components_):
             print(f'Topic {topic_idx}:')
             print(' '.join([feature_names[i] for i in topic.argsort()[:-num_words - 1:-1]]))
-        
+
         return lda_model, vectorizer
 
     def visualize_topics(self, lda_model, vectorizer):
+        # Ensure the data is transformed outside of any multiprocessing context
+        transformed_data = vectorizer.transform(self.df['headline'].apply(self.preprocess_text))
+
         # Prepare the LDA visualization using pyLDAvis
-        lda_display = pyLDAvis.sklearn.prepare(lda_model, vectorizer.transform(self.df['processed_headlines']), vectorizer)
+        lda_display = pyLDAvis.prepare(
+            topic_term_dists=lda_model.components_,
+            doc_topic_dists=lda_model.transform(transformed_data),
+            doc_lengths=[len(doc.split()) for doc in self.df['headline']],
+            vocab=vectorizer.get_feature_names_out(),
+            term_frequency=transformed_data.sum(axis=0).A1
+        )
         pyLDAvis.display(lda_display)
-        # If running in a Jupyter notebook, you can use this instead:
-        # pyLDAvis.enable_notebook()
-        # pyLDAvis.display(lda_display)
 
     def plot_topic_word_distribution(self, lda_model, vectorizer, num_topics=5, num_words=10):
         feature_names = vectorizer.get_feature_names_out()
