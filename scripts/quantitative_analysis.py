@@ -6,19 +6,24 @@ import talib as tb
 import mplfinance as mpf
 
 class QuantitativeAnalysis:
+    # Initialize with Dataframe and Stockname
     def __init__(self, df, stock_name):
         self.df = df
         self.stock_name = stock_name
     def change_to_datetime(self):
+        # Convert Date column to datetime format
         self.df['Date'] = pd.to_datetime(self.df['Date'])
     
     def set_date_index(self):
+        # Set datecolumn as Dataframe index
         self.df.set_index(['Date'], inplace = True)
 
     def reset_index(self):
+        # "Reset index to include 'Date' as column"
         self.df.reset_index(['Date'], inplace = True)
 
     def plot_stock_prices(self):
+        # Plot stock prices and candle sticks
         plt.figure(figsize=(14, 7))
         plt.plot(self.df['Date'], self.df['Open'], label='Open', color='blue', alpha=0.)
         plt.plot(self.df['Date'], self.df['High'], label='High', color='green', alpha=0.5)
@@ -35,7 +40,7 @@ class QuantitativeAnalysis:
         mpf.plot(self.df, type='candle', style='charles', title=f'Candlestick Chart of {self.stock_name}', ylabel='Price')
 
     def calculate_analysis_indicators(self):
-        # Calculating financial indicators
+        # Compute financial indicators including SMA, RSI, MACD, and Bollinger Bands.
         self.df['SMA_20'] = tb.SMA(self.df['Close'], timeperiod = 20)
         self.df['SMA_50'] = tb.SMA(self.df['Close'], timeperiod = 50)
         self.df['RSI'] = tb.RSI(self.df['Close'], timeperiod = 14)
@@ -54,7 +59,13 @@ class QuantitativeAnalysis:
         )
 
     def plot_analysis_indicators(self, start_date, end_date):
-        # Define the period you want to focus on in this format 'year-month-day' eg. ('2022-01-01')
+        """
+        Plot financial indicators for a specified date range.
+        
+        Parameters:
+        start_date (str): Start date in 'YYYY-MM-DD' format.
+        end_date (str): End date in 'YYYY-MM-DD' format.
+        """
         apple_period = self.df[(self.df.index >= start_date) & (self.df.index <= end_date)]
 
         # Plotting the adjusted time frame for SMA, RSI, MACD, and Bollinger Bands
