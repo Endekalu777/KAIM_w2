@@ -19,10 +19,12 @@ from sklearn.pipeline import Pipeline
 
 class ArticleDataAnalyzer:
     def __init__(self, df):
+        # Initialize with the dataset, stop words, and lemmatizer
         self.df = df
         self.stop_words = set(stopwords.words('english'))
         self.lemmatizer = WordNetLemmatizer()
     def ensure_nltk_resources(self):
+        # Ensure necessary NLTK resources are available
         resources = [
             'corpora/stopwords.zip',
             'corpora/wordnet.zip',
@@ -38,6 +40,7 @@ class ArticleDataAnalyzer:
 
 
     def format_datetime(self):
+        # Convert 'date' to datetime and extract date components
         self.df['date'] = pd.to_datetime(self.df['date'], format = "ISO8601")
         self.df['year'] = self.df['date'].dt.year
         self.df['month'] = self.df['date'].dt.month
@@ -46,13 +49,16 @@ class ArticleDataAnalyzer:
         self.df['hour'] = self.df['date'].dt.hour
 
     def set_datetime_index(self):
+        # Set 'date' as the DataFrame index if not already
         if self.df.index.name != 'date':
             self.df.set_index('date', inplace=True)
 
     def analyzing_headline(self):
+        # Calculate the length of each headline
         self.df['headline_length'] = self.df['headline'].apply(len)
     
     def publisher_analysis(self):
+        # Analyze and visualize the number of articles per publisher
         publisher_counts = self.df['publisher'].value_counts()
         top_publishers = publisher_counts.head(30)
         plt.figure(figsize = (10, 6))
@@ -64,6 +70,7 @@ class ArticleDataAnalyzer:
         plt.show()
 
     def sentiment_analysis(self):
+        # Perform sentiment analysis on headlines
         try:
             nltk.data.find('sentiment/vader_lexicon.zip')
         except LookupError:
@@ -71,6 +78,8 @@ class ArticleDataAnalyzer:
         sia = SentimentIntensityAnalyzer()
         self.df['sentiment'] = self.df['headline'].apply(lambda x: sia.polarity_scores(x)['compound'])
         self.df['sentiment_class'] = self.df['sentiment'].apply(lambda x: 'positive' if x > 0 else 'negative' if x < 0 else 'neutral')
+
+        # Plot sentiment distribution
         plt.figure(figsize=(8, 6))
         sns.countplot(x='sentiment_class', data=self.df, palette='coolwarm')
         plt.title('Sentiment Distribution')
@@ -78,14 +87,16 @@ class ArticleDataAnalyzer:
         plt.ylabel('Count')
         plt.show()
 
+        # Print sentiment counts
         sentiment_counts = self.df['sentiment_class'].value_counts()
         print("Sentiment Counts:")
         for sentiment, count in sentiment_counts.items():
             print(f"{sentiment.capitalize()}: {count}")
 
+        # Analyze sentiment by publisher    
         sentiment_by_publisher = self.df.groupby('publisher')['sentiment'].mean().sort_values(ascending=False).head(30)
 
-        # Plot sentiment by top publishers
+        # Plot average sentiment score by top publishers
         plt.figure(figsize=(10, 6))
         sns.barplot(x=sentiment_by_publisher.values, y=sentiment_by_publisher.index, palette='coolwarm')
         plt.title('Average Sentiment Score by Top Publishers')
@@ -93,7 +104,7 @@ class ArticleDataAnalyzer:
         plt.ylabel('Publisher')
         plt.show()
 
-
+        # Combined plot for article count and average sentiment by publisher
         publisher_sentiment = self.df.groupby('publisher').agg(
         article_count=('headline', 'count'),
         avg_sentiment=('sentiment', 'mean')).reset_index()
@@ -101,11 +112,9 @@ class ArticleDataAnalyzer:
         # Sort by the number of articles
         publisher_sentiment = publisher_sentiment.sort_values(by='article_count', ascending=False).head(20)
 
-        # Plot
+        # Plot article count and sentiment score
         fig, ax1 = plt.subplots(figsize=(14, 8))
-        # Bar plot for the number of articles
         sns.barplot(x='publisher', y='article_count', data=publisher_sentiment, ax=ax1, palette='Blues_d')
-
         ax2 = ax1.twinx()
         sns.lineplot(x='publisher', y='avg_sentiment', data=publisher_sentiment, ax=ax2, color='red', marker='o')
         ax1.set_title('Number of Articles and Average Sentiment Score per Publisher')
@@ -117,6 +126,7 @@ class ArticleDataAnalyzer:
 
     
     def headline_analysis(self):
+        # Generate and visualize a word cloud of headlines
         all_headlines = ' '.join(self.df['headline'].tolist())
         wordcloud = WordCloud(width=800, height=400, background_color='white').generate(all_headlines)
         plt.figure(figsize=(10, 6))
@@ -127,7 +137,7 @@ class ArticleDataAnalyzer:
 
 
     def articles_published(self):
-        # Articles published per year
+        # Visualize articles published per year
         plt.figure(figsize=(10, 6))
         sns.countplot(data=self.df, x='year', palette='viridis')
         plt.title('Number of Articles Published Per Year')
@@ -135,7 +145,7 @@ class ArticleDataAnalyzer:
         plt.ylabel('Number of Articles')
         plt.show()
 
-        # Articles published per month
+        # Visualize articles published per month
         plt.figure(figsize=(10, 6))
         sns.countplot(data=self.df, x='month', palette='viridis')
         plt.title('Number of Articles Published Per Month')
@@ -143,7 +153,7 @@ class ArticleDataAnalyzer:
         plt.ylabel('Number of Articles')
         plt.show()
 
-        # Articles published per week
+        # Visualize articles published per week
         plt.figure(figsize=(10, 6))
         sns.countplot(data=self.df, x='dayofweek', palette='viridis')
         plt.title('Number of Articles Published Per Week')
@@ -151,7 +161,7 @@ class ArticleDataAnalyzer:
         plt.ylabel('Number of Articles')
         plt.show()
 
-        # Articles published per hour
+        # Visualize articles published per hour
         plt.figure(figsize=(10, 6))
         sns.countplot(data=self.df, x='hour', palette='viridis')
         plt.title('Number of Articles Published Per Hour of the Day')
@@ -160,6 +170,7 @@ class ArticleDataAnalyzer:
         plt.show()
 
     def daily_article_trend(self):
+        # Analyze the daily trend of article publications
         self.set_datetime_index()
         daily_article_count = self.df.resample('D').size()
         plt.figure(figsize=(14, 7))
@@ -170,7 +181,7 @@ class ArticleDataAnalyzer:
         plt.show()
 
     def specific_market_event(self, start_period, end_period):
-        # Zoom into a specific period (e.g., around a known market event)
+        # Analyze article publication spikes around specific market events
         self.set_datetime_index()
         daily_article_count = self.df.resample('D').size()
         spike_period = daily_article_count[start_period: end_period]  # Example period
@@ -186,10 +197,10 @@ class ArticleDataAnalyzer:
             print("No data available for the specified period.")
 
     def extract_domain(self):
-        # Extract domain from publisher email (if applicable)
+        # Extract and analyze domain from publisher email addresses
         self.df['domain'] = self.df['publisher'].apply(lambda x: x.split('@')[-1] if '@' in x else 'Other')
 
-        # Count the number of articles per domain
+        # Count and visualize the number of articles per domain
         domain_counts = self.df['domain'].value_counts()
         print(domain_counts)
 
@@ -203,12 +214,12 @@ class ArticleDataAnalyzer:
         plt.show()
 
     def preprocess_text(self, text):
-        # Tokenize and clean text
+        # Clean and preprocess text by tokenizing, removing stop words, and lemmatizing
         text = re.sub(r'\s+', ' ', text)  # Remove multiple spaces
         text = re.sub(r"[^a-zA-Z\s]", " ", text)  # Remove everything except letters and spaces
         tokens = text.lower().split()
 
-        # Remove stop words and lemmatize
+        # Remove stop words and lemmatize tokens
         tokens = [self.lemmatizer.lemmatize(token) for token in tokens if token not in self.stop_words]
         
         return ' '.join(tokens)
@@ -264,6 +275,7 @@ class ArticleDataAnalyzer:
         pyLDAvis.display(lda_display)
 
     def plot_topic_word_distribution(self, lda_model, vectorizer, num_topics=5, num_words=10):
+        # Visualize the topic word distribution
         feature_names = vectorizer.get_feature_names_out()
         for i in range(num_topics):
             plt.figure(figsize=(10, 6))
