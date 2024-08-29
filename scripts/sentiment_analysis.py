@@ -16,6 +16,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from IPython.display import display
 
 class ArticleDataAnalyzer:
     def __init__(self, df):
@@ -56,6 +57,7 @@ class ArticleDataAnalyzer:
     def analyzing_headline(self):
         # Calculate the length of each headline
         self.df['headline_length'] = self.df['headline'].apply(len)
+        display(self.df.head())
     
     def publisher_analysis(self):
         # Analyze and visualize the number of articles per publisher
@@ -82,14 +84,14 @@ class ArticleDataAnalyzer:
         def classify_sentiment(score):
             if score >= 0.7:
                 return 'highly positive'
-            elif score > 0:
+            elif 0 < score < 0.7:  # Explicitly check for positive but less than 0.7
                 return 'positive'
             elif score == 0:
                 return 'neutral'
-            elif score <= -0.7:
-                return 'highly negative'
-            else:
+            elif -0.7 <= score < 0:  # Explicitly check for negative but greater than -0.7
                 return 'negative'
+            else:  # This will cover scores less than -0.7
+                return 'highly negative'
 
         # Apply the classification to the sentiment scores
         self.df['sentiment_class'] = self.df['sentiment'].apply(classify_sentiment)
