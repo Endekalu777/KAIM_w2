@@ -41,7 +41,7 @@ class ArticleDataAnalyzer:
 
     def format_datetime(self):
         # Convert 'date' to datetime and extract date components
-        self.df['date'] = pd.to_datetime(self.df['date'], format = "ISO8601")
+        self.df['date'] = pd.to_datetime(self.df['date'], errors = 'coerce', utc = True)
         self.df['year'] = self.df['date'].dt.year
         self.df['month'] = self.df['date'].dt.month
         self.df['day'] = self.df['date'].dt.day
