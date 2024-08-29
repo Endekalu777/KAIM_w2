@@ -77,7 +77,22 @@ class ArticleDataAnalyzer:
             nltk.download('vader_lexicon')
         sia = SentimentIntensityAnalyzer()
         self.df['sentiment'] = self.df['headline'].apply(lambda x: sia.polarity_scores(x)['compound'])
-        self.df['sentiment_class'] = self.df['sentiment'].apply(lambda x: 'positive' if x > 0 else 'negative' if x < 0 else 'neutral')
+
+        # Define thresholds for sentiment classification
+        def classify_sentiment(score):
+            if score >= 0.7:
+                return 'highly positive'
+            elif score > 0:
+                return 'positive'
+            elif score == 0:
+                return 'neutral'
+            elif score <= -0.7:
+                return 'highly negative'
+            else:
+                return 'negative'
+
+        # Apply the classification to the sentiment scores
+        self.df['sentiment_class'] = self.df['sentiment'].apply(classify_sentiment)
 
         # Plot sentiment distribution
         plt.figure(figsize=(8, 6))
@@ -123,8 +138,7 @@ class ArticleDataAnalyzer:
         ax2.set_ylabel('Average Sentiment Score')
         ax1.set_xticklabels(publisher_sentiment['publisher'], rotation=90)
         plt.show()
-
-    
+ 
     def headline_analysis(self):
         # Generate and visualize a word cloud of headlines
         all_headlines = ' '.join(self.df['headline'].tolist())
@@ -134,7 +148,6 @@ class ArticleDataAnalyzer:
         plt.axis('off')
         plt.title('Word Cloud of Headlines')
         plt.show()
-
 
     def articles_published(self):
         # Visualize articles published per year
