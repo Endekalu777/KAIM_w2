@@ -237,13 +237,7 @@ class ArticleDataAnalyzer:
         
         return ' '.join(tokens)
 
-    def topic_modeling(self, num_topics=5, num_words=10, sample_size=None):
-        # Sample a portion of the data if sample_size is specified
-        if sample_size:
-            df_sample = self.df.sample(n=sample_size, random_state=100)
-        else:
-            df_sample = self.df
-
+    def topic_modeling(self, num_topics=5, num_words=10):
         # Create a CountVectorizer and LDA model
         vectorizer = CountVectorizer(stop_words='english', max_df=0.95, min_df=2)
         lda_model = LatentDirichletAllocation(n_components=num_topics, random_state=100, n_jobs=-1)  # Use all CPUs
@@ -260,7 +254,7 @@ class ArticleDataAnalyzer:
         ])
 
         # Fit the pipeline
-        pipeline.fit(df_sample['headline'])
+        pipeline.fit(self.df['headline'])
 
         # Extract the LDA model and feature names
         feature_names = vectorizer.get_feature_names_out()
