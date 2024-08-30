@@ -1,0 +1,9 @@
+pandas
+matplotlib
+seaborn
+pyLDAvis
+re
+nltk
+scikit-learn
+talib
+mplfinance
