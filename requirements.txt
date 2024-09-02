@@ -2,8 +2,12 @@ pandas
 matplotlib
 seaborn
 pyLDAvis
-re
 nltk
 scikit-learn
 talib
 mplfinance
+textblob
+wordcloud
+pyldavis
+mplfinance
+talib
