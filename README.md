@@ -102,4 +102,4 @@ Contributions are welcome! If you find any issues or have suggestions for improv
 This project is licensed under the MIT License. See the LICENSE file for more details.
 
 ### Contact
-For any questions or additional information please contat Endekalu.simon.haile@gmail.com
+For any questions or additional information please contact Endekalu.simon.haile@gmail.com
